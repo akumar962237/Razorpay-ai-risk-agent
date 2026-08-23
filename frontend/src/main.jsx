@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-const API = "http://127.0.0.1:8000";
+const API = "https://razorpay-ai-risk-agent.onrender.com";
 
 const initialForm = {
   amount: 48500,
@@ -14,28 +14,43 @@ const initialForm = {
   new_location: true,
 };
 
+const demoFeatures = [
+  -1.3598071337,
+  -0.0727811733,
+  2.536346738,
+  1.3781552243,
+  -0.3383207699,
+  0.4623877778,
+  0.2395985541,
+  0.0986979013,
+  0.3637869696,
+  0.090794172,
+  -0.5515995333,
+  -0.6178008558,
+  -0.9913898472,
+  -0.3111693537,
+  1.4681769721,
+  -0.4704005253,
+  0.2079712419,
+  0.0257905802,
+  0.4039929603,
+  0.2514120982,
+  -0.0183067779,
+  0.2778375756,
+  -0.1104739102,
+  0.0669280749,
+  0.1285393583,
+  -0.1891148439,
+  0.1335583767,
+  -0.0210530535,
+];
+
 function App() {
   const [form, setForm] = useState(initialForm);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [backendOnline, setBackendOnline] = useState(false);
-
-  async function loadHistory() {
-    try {
-      const response = await fetch(`${API}/investigations`);
-
-      if (!response.ok) {
-        throw new Error();
-      }
-
-      const data = await response.json();
-      setHistory(data);
-      setBackendOnline(true);
-    } catch {
-      setBackendOnline(false);
-    }
-  }
 
   async function checkHealth() {
     try {
@@ -51,14 +66,29 @@ function App() {
     }
   }
 
+  async function loadHistory() {
+    try {
+      const response = await fetch(`${API}/investigations`);
+
+      if (!response.ok) {
+        throw new Error();
+      }
+
+      const data = await response.json();
+      setHistory(data);
+    } catch {
+      // Backend may be sleeping on Render.
+    }
+  }
+
   useEffect(() => {
-    loadHistory();
     checkHealth();
+    loadHistory();
 
     const interval = setInterval(() => {
-      loadHistory();
       checkHealth();
-    }, 5000);
+      loadHistory();
+    }, 10000);
 
     return () => clearInterval(interval);
   }, []);
@@ -82,44 +112,6 @@ function App() {
     setResult(null);
 
     try {
-      /*
-       * The public benchmark model requires V1-V28.
-       *
-       * For the dashboard we use a documented demo vector.
-       * The backend remains responsible for the actual ML
-       * inference and investigation policy.
-       */
-      const demoFeatures = [
-        -1.3598071337,
-        -0.0727811733,
-        2.536346738,
-        1.3781552243,
-        -0.3383207699,
-        0.4623877778,
-        0.2395985541,
-        0.0986979013,
-        0.3637869696,
-        0.090794172,
-        -0.5515995333,
-        -0.6178008558,
-        -0.9913898472,
-        -0.3111693537,
-        1.4681769721,
-        -0.4704005253,
-        0.2079712419,
-        0.0257905802,
-        0.4039929603,
-        0.2514120982,
-        -0.0183067779,
-        0.2778375756,
-        -0.1104739102,
-        0.0669280749,
-        0.1285393583,
-        -0.1891148439,
-        0.1335583767,
-        -0.0210530535,
-      ];
-
       const payload = {
         ...form,
         v: demoFeatures,
@@ -152,7 +144,7 @@ function App() {
       setResult({
         error:
           error.message ||
-          "Backend unavailable. Start FastAPI on port 8000.",
+          "Unable to connect to the risk engine.",
       });
     } finally {
       setLoading(false);
@@ -169,10 +161,6 @@ function App() {
 
   return (
     <main>
-      {/* ================================================== */}
-      {/* HEADER */}
-      {/* ================================================== */}
-
       <header className="topbar">
         <div>
           <div className="eyebrow">
@@ -185,8 +173,9 @@ function App() {
           </h1>
 
           <p className="subtitle">
-            Explainable fraud detection with ML-powered
-            risk investigation and bounded decisions.
+            Explainable fraud detection with
+            ML-powered risk investigation and
+            bounded decisions.
           </p>
         </div>
 
@@ -204,10 +193,6 @@ function App() {
             : "BACKEND OFFLINE"}
         </div>
       </header>
-
-      {/* ================================================== */}
-      {/* KPI STRIP */}
-      {/* ================================================== */}
 
       <section className="metrics">
         <Metric
@@ -243,15 +228,7 @@ function App() {
         />
       </section>
 
-      {/* ================================================== */}
-      {/* MAIN GRID */}
-      {/* ================================================== */}
-
       <section className="main-grid">
-        {/* ================================================= */}
-        {/* INVESTIGATION FORM */}
-        {/* ================================================= */}
-
         <form
           className="card investigation-card"
           onSubmit={investigate}
@@ -268,7 +245,7 @@ function App() {
             </div>
 
             <div className="mode-tag">
-              LIVE
+              LIVE API
             </div>
           </div>
 
@@ -357,13 +334,9 @@ function App() {
 
           <div className="demo-note">
             <span>●</span>
-            Benchmark ML model + contextual risk engine
+            Connected to live FastAPI risk engine
           </div>
         </form>
-
-        {/* ================================================= */}
-        {/* RESULT */}
-        {/* ================================================= */}
 
         <section className="card result-card">
           <div className="card-heading">
@@ -441,15 +414,23 @@ function App() {
               <div className="signal-grid">
                 <Signal
                   label="ML probability"
-                  value={`${(
-                    result.ml_probability * 100
-                  ).toFixed(1)}%`}
+                  value={
+                    result.ml_probability !==
+                    undefined
+                      ? `${(
+                          result.ml_probability * 100
+                        ).toFixed(1)}%`
+                      : "—"
+                  }
                 />
 
                 <Signal
                   label="Context risk"
                   value={
-                    result.context_risk_score !== null
+                    result.context_risk_score !==
+                      null &&
+                    result.context_risk_score !==
+                      undefined
                       ? `${result.context_risk_score}/100`
                       : "—"
                   }
@@ -486,10 +467,6 @@ function App() {
           )}
         </section>
       </section>
-
-      {/* ================================================== */}
-      {/* AUDIT TRAIL */}
-      {/* ================================================== */}
 
       <section className="card audit-card">
         <div className="card-heading">
@@ -530,9 +507,7 @@ function App() {
                 {history.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      {formatTime(
-                        item.created_at
-                      )}
+                      {formatTime(item.created_at)}
                     </td>
 
                     <td>
@@ -549,7 +524,9 @@ function App() {
 
                     <td>
                       <RiskBadge
-                        level={item.level.toLowerCase()}
+                        level={
+                          item.level.toLowerCase()
+                        }
                       >
                         {item.level}
                       </RiskBadge>
@@ -564,7 +541,9 @@ function App() {
                     </td>
 
                     <td>
-                      {item.probability !== null
+                      {item.probability !== null &&
+                      item.probability !==
+                        undefined
                         ? `${(
                             item.probability * 100
                           ).toFixed(1)}%`
@@ -577,10 +556,6 @@ function App() {
           </div>
         )}
       </section>
-
-      {/* ================================================== */}
-      {/* FOOTER */}
-      {/* ================================================== */}
 
       <footer>
         <span>
@@ -596,11 +571,6 @@ function App() {
   );
 }
 
-
-/* ============================================================
-   COMPONENTS
-   ============================================================ */
-
 function Metric({ label, value }) {
   return (
     <div className="metric">
@@ -609,7 +579,6 @@ function Metric({ label, value }) {
     </div>
   );
 }
-
 
 function Field({
   name,
@@ -651,7 +620,6 @@ function Field({
   );
 }
 
-
 function Toggle({
   name,
   label,
@@ -678,7 +646,6 @@ function Toggle({
   );
 }
 
-
 function Signal({ label, value }) {
   return (
     <div className="signal">
@@ -687,7 +654,6 @@ function Signal({ label, value }) {
     </div>
   );
 }
-
 
 function RiskBadge({ level, children }) {
   return (
@@ -698,15 +664,16 @@ function RiskBadge({ level, children }) {
   );
 }
 
-
 function formatTime(timestamp) {
   if (!timestamp) {
     return "—";
   }
 
-  const date = new Date(
-    timestamp.replace(" ", "T") + "Z"
-  );
+  const normalized = timestamp.includes("T")
+    ? timestamp
+    : timestamp.replace(" ", "T");
+
+  const date = new Date(normalized);
 
   if (Number.isNaN(date.getTime())) {
     return timestamp;
@@ -717,7 +684,6 @@ function formatTime(timestamp) {
     minute: "2-digit",
   });
 }
-
 
 createRoot(
   document.getElementById("root")
