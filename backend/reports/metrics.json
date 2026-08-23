@@ -1,0 +1,44 @@
+{
+  "dataset_rows": 284807,
+  "fraud_count": 492,
+  "fraud_rate": 0.001727485630620034,
+  "train_rows": 182276,
+  "validation_rows": 45569,
+  "test_rows": 56962,
+  "selected_model": "logistic",
+  "selected_threshold": 0.9500000000000002,
+  "test_precision": 0.4236111111111111,
+  "test_recall": 0.8133333333333334,
+  "test_f1": 0.5570776255707762,
+  "test_pr_auc": 0.7619254653759524,
+  "confusion_matrix": {
+    "labels": [
+      "legitimate",
+      "fraud"
+    ],
+    "matrix": [
+      [
+        56804,
+        83
+      ],
+      [
+        14,
+        61
+      ]
+    ]
+  },
+  "illustrative_cost_assumption": {
+    "false_positive": 1,
+    "false_negative": 10
+  },
+  "validation_model_comparison": [
+    {
+      "model": "logistic",
+      "validation_pr_auc": 0.7750720286291326
+    },
+    {
+      "model": "hist_gradient_boosting",
+      "validation_pr_auc": 0.7078439613381111
+    }
+  ]
+}
