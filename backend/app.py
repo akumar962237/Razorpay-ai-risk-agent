@@ -887,3 +887,128 @@ def investigations(
 
         for row in rows
     ]
+
+# ============================================================
+# TRANSACTION EVENT SIMULATION / INGESTION
+# ============================================================
+
+class PaymentEvent(BaseModel):
+    """
+    Represents a transaction event received from a payment
+    provider, bank, PSP, or UPI integration.
+
+    In production, these values would come from an authorized
+    payment integration. For this prototype, the event can be
+    simulated safely.
+    """
+
+    transaction_id: str
+    amount: float = Field(ge=0)
+    hour: int = Field(ge=0, le=23)
+    customer_avg_amount: float = Field(ge=0)
+    transactions_24h: int = Field(ge=0)
+    account_age_days: int = Field(ge=0)
+    new_device: bool = False
+    new_location: bool = False
+    payment_method: str = "UPI"
+
+
+@app.post("/transactions/evaluate")
+def evaluate_transaction(event: PaymentEvent):
+    """
+    Evaluate an incoming payment event.
+
+    This endpoint represents the real-time transaction
+    ingestion layer. A production payment provider would
+    call this endpoint when a transaction occurs.
+    """
+
+    transaction = ContextTransaction(
+        amount=event.amount,
+        hour=event.hour,
+        customer_avg_amount=event.customer_avg_amount,
+        transactions_24h=event.transactions_24h,
+        account_age_days=event.account_age_days,
+        new_device=event.new_device,
+        new_location=event.new_location,
+    )
+
+    context_score, context_reasons = calculate_context_risk(
+        transaction
+    )
+
+    # Context-only decision for the transaction-event layer.
+    # The benchmark ML model remains separate because its
+    # V1-V28 features are anonymized benchmark features.
+    if context_score >= 85:
+        risk_level = "HIGH"
+        decision = "BLOCK"
+        action = (
+            "Block automatically and create "
+            "a high-priority risk case."
+        )
+
+    elif context_score >= 55:
+        risk_level = "MEDIUM"
+        decision = "REVIEW"
+        action = (
+            "Send for manual review before fulfillment."
+        )
+
+    else:
+        risk_level = "LOW"
+        decision = "APPROVE"
+        action = "Approve and continue monitoring."
+
+    reasons = list(context_reasons)
+
+    if not reasons:
+        reasons.append(
+            "No strong transaction-context risk signals "
+            "were detected."
+        )
+
+    reasons.append(
+        f"Transaction context risk score: "
+        f"{context_score}/100."
+    )
+
+    result = {
+        "transaction_id": event.transaction_id,
+        "payment_method": event.payment_method,
+        "risk_score": context_score,
+        "risk_level": risk_level,
+        "decision": decision,
+        "ml_probability": None,
+        "context_risk_score": context_score,
+        "reasons": reasons,
+        "recommended_action": action,
+        "warning": (
+            risk_level in {"MEDIUM", "HIGH"}
+        ),
+        "signals": {
+            "amount": event.amount,
+            "customer_average_amount": (
+                event.customer_avg_amount
+            ),
+            "transactions_24h": (
+                event.transactions_24h
+            ),
+            "account_age_days": (
+                event.account_age_days
+            ),
+            "new_device": event.new_device,
+            "new_location": event.new_location,
+            "hour": event.hour,
+        },
+    }
+
+    log_result(
+        "transaction_event",
+        {
+            **result,
+            "ml_probability": 0.0,
+        },
+    )
+
+    return result
